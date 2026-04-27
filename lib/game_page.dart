@@ -21,7 +21,13 @@ class _GamePageState extends State<GamePage> {
 
   List<int> worker = [45, 65, 85];
   int paper = 300;
-  List<int> obstacles = [];
+
+  /// ✅ UPDATED: store obstacle type + position
+  List<Map<String, dynamic>> obstacles = [];
+
+  /// obstacle rotation
+  final List<String> obstacleTypes = ['desk', 'water', 'trash'];
+  int obstacleIndex = 0;
 
   Direction direction = Direction.down;
   Direction? pendingDirection;
@@ -31,10 +37,11 @@ class _GamePageState extends State<GamePage> {
   int papersCollected = 0;
 
   Timer? timer;
-  Timer? settingsTimer; // ✅ LIVE SETTINGS WATCHER
+  Timer? settingsTimer;
 
   int gameSpeed = 200;
   bool isEasy = true;
+  bool isGirl = false;
 
   final player = AudioPlayer();
 
@@ -44,7 +51,7 @@ class _GamePageState extends State<GamePage> {
 
     loadSettings();
     loadHighScore();
-    startWatchingSettings(); // ✅ REAL-TIME DIFFICULTY UPDATES
+    startWatchingSettings();
 
     obstacles.clear();
     generateNewPaper();
@@ -56,23 +63,29 @@ class _GamePageState extends State<GamePage> {
     final prefs = await SharedPreferences.getInstance();
 
     isEasy = prefs.getBool('isEasy') ?? true;
+    isGirl = prefs.getBool('isGirl') ?? false;
+
     gameSpeed = isEasy ? 200 : 100;
 
     startGame();
   }
 
   void startWatchingSettings() {
-    settingsTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+    settingsTimer =
+        Timer.periodic(const Duration(milliseconds: 500), (_) async {
       final prefs = await SharedPreferences.getInstance();
-      bool newIsEasy = prefs.getBool('isEasy') ?? true;
 
-      if (newIsEasy != isEasy) {
+      bool newIsEasy = prefs.getBool('isEasy') ?? true;
+      bool newIsGirl = prefs.getBool('isGirl') ?? false;
+
+      if (newIsEasy != isEasy || newIsGirl != isGirl) {
         setState(() {
           isEasy = newIsEasy;
+          isGirl = newIsGirl;
           gameSpeed = isEasy ? 200 : 100;
         });
 
-        startGame(); // restart timer only (NOT game state)
+        startGame();
       }
     });
   }
@@ -97,32 +110,6 @@ class _GamePageState extends State<GamePage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('highScore', highScore);
     }
-  }
-
-  // ---------------- LEADERBOARD ----------------
-
-  Future<void> saveScore(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final data = prefs.getString('leaderboard');
-    List list = [];
-
-    if (data != null) {
-      list = jsonDecode(data);
-    }
-
-    list.add({
-      "name": name.isEmpty ? "Player" : name,
-      "score": score,
-    });
-
-    list.sort((a, b) => b['score'].compareTo(a['score']));
-
-    if (list.length > 20) {
-      list = list.sublist(0, 20);
-    }
-
-    await prefs.setString('leaderboard', jsonEncode(list));
   }
 
   // ---------------- GAME LOOP ----------------
@@ -195,7 +182,10 @@ class _GamePageState extends State<GamePage> {
           (direction == Direction.right &&
               newHead ~/ rowSize != currentHead ~/ rowSize);
 
-      bool hitObstacle = obstacles.contains(newHead);
+      /// ✅ UPDATED obstacle collision
+      bool hitObstacle =
+          obstacles.any((o) => o['index'] == newHead);
+
       bool hitSelf = worker.contains(newHead);
 
       if (hitWall || wrapped || hitObstacle || hitSelf) {
@@ -240,14 +230,17 @@ class _GamePageState extends State<GamePage> {
     } while (
         (worker.contains(newObstacle) ||
             newObstacle == paper ||
-            obstacles.contains(newObstacle)) &&
+            obstacles.any((o) => o['index'] == newObstacle)) &&
         attempts < 100);
 
-    if (!worker.contains(newObstacle) &&
-        newObstacle != paper &&
-        !obstacles.contains(newObstacle)) {
-      obstacles.add(newObstacle);
-    }
+    /// ✅ cycle type
+    String type = obstacleTypes[obstacleIndex];
+    obstacleIndex = (obstacleIndex + 1) % obstacleTypes.length;
+
+    obstacles.add({
+      'index': newObstacle,
+      'type': type,
+    });
   }
 
   void generateNewPaper() {
@@ -258,49 +251,20 @@ class _GamePageState extends State<GamePage> {
       paper = random.nextInt(totalSquares);
       attempts++;
     } while (
-        (worker.contains(paper) || obstacles.contains(paper)) &&
+        (worker.contains(paper) ||
+            obstacles.any((o) => o['index'] == paper)) &&
         attempts < 100);
   }
 
   // ---------------- GAME OVER ----------------
 
   void showGameOver() {
-    if (score <= 1) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          title: const Text("Game Over 💀"),
-          content: Text("You collected $score papers!"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                resetGame();
-              },
-              child: const Text("Play Again"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: const Text("Quit"),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => GameOverDialog(
         score: score,
-        onSubmit: (name) {
-          saveScore(name);
-        },
+        onSubmit: (name) {},
         onPlayAgain: () {
           Navigator.pop(context);
           resetGame();
@@ -323,6 +287,7 @@ class _GamePageState extends State<GamePage> {
     gameSpeed = isEasy ? 200 : 100;
 
     obstacles.clear();
+    obstacleIndex = 0;
 
     generateNewPaper();
     startGame();
@@ -339,15 +304,24 @@ class _GamePageState extends State<GamePage> {
   // ---------------- UI ----------------
 
   String getHeadImage() {
-    switch (direction) {
-      case Direction.up:
-        return 'back.png';
-      case Direction.down:
-        return 'worker.png';
-      case Direction.left:
-        return 'lf.png';
-      case Direction.right:
-        return 'rf.png';
+    if (isGirl) {
+      switch (direction) {
+        case Direction.up:
+          return 'gb.png';
+        default:
+          return 'gf.png';
+      }
+    } else {
+      switch (direction) {
+        case Direction.up:
+          return 'back.png';
+        case Direction.down:
+          return 'worker.png';
+        case Direction.left:
+          return 'lf.png';
+        case Direction.right:
+          return 'rf.png';
+      }
     }
   }
 
@@ -358,9 +332,17 @@ class _GamePageState extends State<GamePage> {
       return Image.asset('paper.png');
     } else if (index == paper) {
       return Image.asset('paper.png');
-    } else if (obstacles.contains(index)) {
-      return Image.asset('desk.png');
     } else {
+      /// ✅ render obstacle by type
+      final obstacle = obstacles.firstWhere(
+        (o) => o['index'] == index,
+        orElse: () => {},
+      );
+
+      if (obstacle.isNotEmpty) {
+        return Image.asset('${obstacle['type']}.png');
+      }
+
       return Container(color: const Color(0xFFF2F3F8));
     }
   }
@@ -368,101 +350,18 @@ class _GamePageState extends State<GamePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFFEAF2FF),
-                  Color(0xFFFCE4EC),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
+      body: SafeArea(
+        child: GridView.builder(
+          itemCount: totalSquares,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate:
+              const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: rowSize,
           ),
-          Container(
-            color: Colors.white.withOpacity(0.08),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        "📄 $score",
-                        style: const TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        "Best: $highScore",
-                        style: const TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                Expanded(
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 25,
-                          )
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: GestureDetector(
-                          onVerticalDragUpdate: (details) {
-                            changeDirection(details.delta.dy > 0
-                                ? Direction.down
-                                : Direction.up);
-                          },
-                          onHorizontalDragUpdate: (details) {
-                            changeDirection(details.delta.dx > 0
-                                ? Direction.right
-                                : Direction.left);
-                          },
-                          child: GridView.builder(
-                            itemCount: totalSquares,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: rowSize,
-                            ),
-                            itemBuilder: (context, index) {
-                              return buildCell(index);
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          itemBuilder: (context, index) {
+            return buildCell(index);
+          },
+        ),
       ),
     );
   }

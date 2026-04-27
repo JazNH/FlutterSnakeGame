@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -8,60 +9,104 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool isBoy = true;
+  bool isGirl = false;
   bool isEasy = true;
 
+  @override
+  void initState() {
+    super.initState();
+    loadSettings();
+  }
+
+  // ✅ LOAD SETTINGS
+  Future<void> loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      isGirl = prefs.getBool('isGirl') ?? false;
+      isEasy = prefs.getBool('isEasy') ?? true;
+    });
+  }
+
+  // ✅ SAVE SETTINGS
+  Future<void> saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setBool('isGirl', isGirl);
+    await prefs.setBool('isEasy', isEasy);
+  }
+
+  // 🔥 NEW: SEGMENTED TOGGLE (THIS VS THAT)
   Widget dualToggle({
     required String leftLabel,
     required String rightLabel,
-    required bool value,
-    required ValueChanged<bool> onChanged,
+    required bool isRightSelected,
+    required VoidCallback onLeftTap,
+    required VoidCallback onRightTap,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         color: Colors.white.withOpacity(0.75),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
             blurRadius: 25,
-            offset: const Offset(0, 12),
           )
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          /// LEFT LABEL
+          /// LEFT OPTION
           Expanded(
-            child: Text(
-              leftLabel,
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: value ? Colors.black : Colors.black38,
+            child: GestureDetector(
+              onTap: onLeftTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: !isRightSelected
+                      ? Colors.blue.withOpacity(0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  leftLabel,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: !isRightSelected
+                        ? Colors.black
+                        : Colors.black38,
+                  ),
+                ),
               ),
             ),
           ),
 
-          /// SWITCH (CENTER)
-          Switch(
-            value: value,
-            onChanged: onChanged,
-          ),
-
-          /// RIGHT LABEL
+          /// RIGHT OPTION
           Expanded(
-            child: Text(
-              rightLabel,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: !value ? Colors.black : Colors.black38,
+            child: GestureDetector(
+              onTap: onRightTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: isRightSelected
+                      ? Colors.blue.withOpacity(0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  rightLabel,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isRightSelected
+                        ? Colors.black
+                        : Colors.black38,
+                  ),
+                ),
               ),
             ),
           ),
@@ -75,7 +120,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       body: Stack(
         children: [
-          /// 🌈 SAME BACKGROUND
+          /// 🌈 BACKGROUND
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -92,7 +137,7 @@ class _SettingsPageState extends State<SettingsPage> {
           SafeArea(
             child: Column(
               children: [
-                /// 🔙 Back button + title
+                /// 🔙 HEADER
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Row(
@@ -115,24 +160,33 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 const SizedBox(height: 20),
 
-                /// 👦 BOY / GIRL
-                /// 👦 BOY / GIRL
+                /// 👦 / 👧 CHARACTER
                 dualToggle(
                   leftLabel: "Boy",
                   rightLabel: "Girl",
-                  value: isBoy,
-                  onChanged: (val) {
-                    setState(() => isBoy = val);
+                  isRightSelected: isGirl,
+                  onLeftTap: () {
+                    setState(() => isGirl = false);
+                    saveSettings();
+                  },
+                  onRightTap: () {
+                    setState(() => isGirl = true);
+                    saveSettings();
                   },
                 ),
 
-                /// 🎯 EASY / HARD
+                /// 🎯 DIFFICULTY
                 dualToggle(
                   leftLabel: "Easy",
                   rightLabel: "Hard",
-                  value: isEasy,
-                  onChanged: (val) {
-                    setState(() => isEasy = val);
+                  isRightSelected: !isEasy,
+                  onLeftTap: () {
+                    setState(() => isEasy = true);
+                    saveSettings();
+                  },
+                  onRightTap: () {
+                    setState(() => isEasy = false);
+                    saveSettings();
                   },
                 ),
               ],
