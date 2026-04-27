@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'game_page.dart';
+import 'high_scores_page.dart'; 
+import 'settings_page.dart'; // ✅ NEW IMPORT
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -23,13 +25,11 @@ class _MenuPageState extends State<MenuPage>
   void initState() {
     super.initState();
 
-    /// 🌫️ floating animation controller
     floatController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
 
-    /// 🎵 loop menu music
     _startMusic();
   }
 
@@ -45,7 +45,7 @@ class _MenuPageState extends State<MenuPage>
     super.dispose();
   }
 
-  /// 🎴 floating paper background
+  /// 🎴 floating paper
   Widget floatingPaper(double size, double delay) {
     return AnimatedBuilder(
       animation: floatController,
@@ -67,7 +67,26 @@ class _MenuPageState extends State<MenuPage>
     );
   }
 
-  /// ✨ arcade button
+  /// 👷 floating worker mascot
+  Widget floatingWorker() {
+    return AnimatedBuilder(
+      animation: floatController,
+      builder: (context, child) {
+        final offset = sin(floatController.value * 2 * pi) * 12;
+
+        return Transform.translate(
+          offset: Offset(0, offset),
+          child: child,
+        );
+      },
+      child: Image.asset(
+        'assets/worker.png',
+        width: 120,
+      ),
+    );
+  }
+
+  /// ✨ button (FIXED)
   Widget arcadeButton({
     required String text,
     required IconData icon,
@@ -75,50 +94,37 @@ class _MenuPageState extends State<MenuPage>
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 1, end: 1),
-        duration: const Duration(milliseconds: 150),
-        builder: (context, value, child) {
-          return Transform.scale(scale: value, child: child);
+      child: GestureDetector(
+        onTap: () {
+          player.play(AssetSource('click.mp3'));
+          onTap(); // ✅ FIX: use passed action
         },
-        child: GestureDetector(
-          onTapDown: (_) => setState(() {}),
-          onTapUp: (_) => setState(() {}),
-          onTap: () {
-            player.play(AssetSource('click.mp3'));
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const GamePage()),
-            );
-          },
-          child: Container(
-            height: 72,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              color: Colors.white.withOpacity(0.75),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 25,
-                  offset: const Offset(0, 12),
-                )
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 28, color: Colors.black87),
-                const SizedBox(width: 12),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                  ),
+        child: Container(
+          height: 72,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            color: Colors.white.withOpacity(0.75),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 25,
+                offset: const Offset(0, 12),
+              )
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 28, color: Colors.black87),
+              const SizedBox(width: 12),
+              Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -134,7 +140,7 @@ class _MenuPageState extends State<MenuPage>
     return Scaffold(
       body: Stack(
         children: [
-          /// 🌈 gradient base
+          /// 🌈 background
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -148,7 +154,7 @@ class _MenuPageState extends State<MenuPage>
             ),
           ),
 
-          /// 🎴 floating background layer
+          /// 🎴 floating papers
           if (started)
             Positioned.fill(
               child: Stack(
@@ -160,7 +166,7 @@ class _MenuPageState extends State<MenuPage>
               ),
             ),
 
-          /// 🌫️ blur glass overlay
+          /// 🌫️ overlay
           Container(
             color: Colors.white.withOpacity(0.08),
           ),
@@ -173,24 +179,31 @@ class _MenuPageState extends State<MenuPage>
     );
   }
 
-  /// 🎮 INTRO SCREEN (arcade start feel)
+  /// 🎮 INTRO
   Widget buildIntro() {
     return Center(
       child: GestureDetector(
         onTap: startGameIntro,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text(
+          children: [
+            /// 👷 floating worker (NEW)
+            floatingWorker(),
+
+            const SizedBox(height: 30),
+
+            const Text(
               "PRESS START",
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 letterSpacing: 6,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            SizedBox(height: 20),
-            Text(
+
+            const SizedBox(height: 20),
+
+            const Text(
               "START",
               style: TextStyle(
                 fontSize: 20,
@@ -204,12 +217,16 @@ class _MenuPageState extends State<MenuPage>
     );
   }
 
-  /// 🎮 MAIN MENU
+  /// 🎮 MENU
   Widget buildMenu() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Spacer(),
+
+        floatingWorker(),
+
+        const SizedBox(height: 16),
 
         const Text(
           "OFFICE RUSH",
@@ -231,19 +248,35 @@ class _MenuPageState extends State<MenuPage>
         arcadeButton(
           text: "Start Game",
           icon: Icons.play_arrow_rounded,
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const GamePage()),
+            );
+          },
         ),
 
         arcadeButton(
           text: "Settings",
           icon: Icons.settings,
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsPage()),
+            );
+          },
         ),
 
         arcadeButton(
           text: "High Scores",
           icon: Icons.emoji_events,
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const HighScoresPage()),
+            );
+          },
         ),
 
         const Spacer(),
