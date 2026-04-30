@@ -22,10 +22,8 @@ class _GamePageState extends State<GamePage> {
   List<int> worker = [45, 65, 85];
   int paper = 300;
 
-  /// ✅ UPDATED: store obstacle type + position
+  // Obstacles with types
   List<Map<String, dynamic>> obstacles = [];
-
-  /// obstacle rotation
   final List<String> obstacleTypes = ['desk', 'water', 'trash'];
   int obstacleIndex = 0;
 
@@ -48,12 +46,9 @@ class _GamePageState extends State<GamePage> {
   @override
   void initState() {
     super.initState();
-
     loadSettings();
     loadHighScore();
     startWatchingSettings();
-
-    obstacles.clear();
     generateNewPaper();
   }
 
@@ -61,12 +56,9 @@ class _GamePageState extends State<GamePage> {
 
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-
     isEasy = prefs.getBool('isEasy') ?? true;
     isGirl = prefs.getBool('isGirl') ?? false;
-
     gameSpeed = isEasy ? 200 : 100;
-
     startGame();
   }
 
@@ -84,7 +76,6 @@ class _GamePageState extends State<GamePage> {
           isGirl = newIsGirl;
           gameSpeed = isEasy ? 200 : 100;
         });
-
         startGame();
       }
     });
@@ -110,6 +101,32 @@ class _GamePageState extends State<GamePage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('highScore', highScore);
     }
+  }
+
+  // ---------------- LEADERBOARD ----------------
+
+  Future<void> saveScore(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final data = prefs.getString('leaderboard');
+    List list = [];
+
+    if (data != null) {
+      list = jsonDecode(data);
+    }
+
+    list.add({
+      "name": name.isEmpty ? "Player" : name,
+      "score": score,
+    });
+
+    list.sort((a, b) => b['score'].compareTo(a['score']));
+
+    if (list.length > 20) {
+      list = list.sublist(0, 20);
+    }
+
+    await prefs.setString('leaderboard', jsonEncode(list));
   }
 
   // ---------------- GAME LOOP ----------------
@@ -182,7 +199,6 @@ class _GamePageState extends State<GamePage> {
           (direction == Direction.right &&
               newHead ~/ rowSize != currentHead ~/ rowSize);
 
-      /// ✅ UPDATED obstacle collision
       bool hitObstacle =
           obstacles.any((o) => o['index'] == newHead);
 
@@ -202,7 +218,6 @@ class _GamePageState extends State<GamePage> {
         papersCollected++;
 
         updateHighScoreIfNeeded();
-
         generateNewPaper();
         updateSpeed();
 
@@ -222,18 +237,14 @@ class _GamePageState extends State<GamePage> {
 
     final random = Random();
     int newObstacle;
-    int attempts = 0;
 
     do {
       newObstacle = random.nextInt(totalSquares);
-      attempts++;
     } while (
-        (worker.contains(newObstacle) ||
-            newObstacle == paper ||
-            obstacles.any((o) => o['index'] == newObstacle)) &&
-        attempts < 100);
+        worker.contains(newObstacle) ||
+        newObstacle == paper ||
+        obstacles.any((o) => o['index'] == newObstacle));
 
-    /// ✅ cycle type
     String type = obstacleTypes[obstacleIndex];
     obstacleIndex = (obstacleIndex + 1) % obstacleTypes.length;
 
@@ -246,25 +257,52 @@ class _GamePageState extends State<GamePage> {
   void generateNewPaper() {
     final random = Random();
 
-    int attempts = 0;
     do {
       paper = random.nextInt(totalSquares);
-      attempts++;
     } while (
-        (worker.contains(paper) ||
-            obstacles.any((o) => o['index'] == paper)) &&
-        attempts < 100);
+        worker.contains(paper) ||
+        obstacles.any((o) => o['index'] == paper));
   }
 
   // ---------------- GAME OVER ----------------
 
   void showGameOver() {
+    if (score <= 1) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text("Game Over 💀"),
+          content: Text("You collected $score papers!"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                resetGame();
+              },
+              child: const Text("Play Again"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context);
+              },
+              child: const Text("Quit"),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => GameOverDialog(
         score: score,
-        onSubmit: (name) {},
+        onSubmit: (name) {
+          saveScore(name);
+        },
         onPlayAgain: () {
           Navigator.pop(context);
           resetGame();
@@ -305,12 +343,7 @@ class _GamePageState extends State<GamePage> {
 
   String getHeadImage() {
     if (isGirl) {
-      switch (direction) {
-        case Direction.up:
-          return 'gb.png';
-        default:
-          return 'gf.png';
-      }
+      return direction == Direction.up ? 'gb.png' : 'gf.png';
     } else {
       switch (direction) {
         case Direction.up:
@@ -333,7 +366,6 @@ class _GamePageState extends State<GamePage> {
     } else if (index == paper) {
       return Image.asset('paper.png');
     } else {
-      /// ✅ render obstacle by type
       final obstacle = obstacles.firstWhere(
         (o) => o['index'] == index,
         orElse: () => {},
@@ -350,18 +382,88 @@ class _GamePageState extends State<GamePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: GridView.builder(
-          itemCount: totalSquares,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate:
-              const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: rowSize,
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFEAF2FF), Color(0xFFFCE4EC)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
-          itemBuilder: (context, index) {
-            return buildCell(index);
-          },
-        ),
+          Container(color: Colors.white.withOpacity(0.08)),
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Column(
+                    children: [
+                      Text("📄 $score",
+                          style: const TextStyle(
+                              fontSize: 34, fontWeight: FontWeight.bold)),
+                      Text("Best: $highScore",
+                          style: const TextStyle(color: Colors.black54)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      margin: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 25,
+                          )
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: GestureDetector(
+                          onVerticalDragUpdate: (details) {
+                            changeDirection(details.delta.dy > 0
+                                ? Direction.down
+                                : Direction.up);
+                          },
+                          onHorizontalDragUpdate: (details) {
+                            changeDirection(details.delta.dx > 0
+                                ? Direction.right
+                                : Direction.left);
+                          },
+                          child: GridView.builder(
+                            itemCount: totalSquares,
+                            physics:
+                                const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: rowSize,
+                            ),
+                            itemBuilder: (context, index) {
+                              return buildCell(index);
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
