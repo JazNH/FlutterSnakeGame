@@ -22,7 +22,6 @@ class _GamePageState extends State<GamePage> {
   List<int> worker = [45, 65, 85];
   int paper = 300;
 
-  // Obstacles with types
   List<Map<String, dynamic>> obstacles = [];
   final List<String> obstacleTypes = ['desk', 'water', 'trash'];
   int obstacleIndex = 0;
@@ -52,8 +51,6 @@ class _GamePageState extends State<GamePage> {
     generateNewPaper();
   }
 
-  // ---------------- SETTINGS ----------------
-
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     isEasy = prefs.getBool('isEasy') ?? true;
@@ -81,8 +78,6 @@ class _GamePageState extends State<GamePage> {
     });
   }
 
-  // ---------------- HIGH SCORE ----------------
-
   Future<void> loadHighScore() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -102,8 +97,6 @@ class _GamePageState extends State<GamePage> {
       await prefs.setInt('highScore', highScore);
     }
   }
-
-  // ---------------- LEADERBOARD ----------------
 
   Future<void> saveScore(String name) async {
     final prefs = await SharedPreferences.getInstance();
@@ -128,8 +121,6 @@ class _GamePageState extends State<GamePage> {
 
     await prefs.setString('leaderboard', jsonEncode(list));
   }
-
-  // ---------------- GAME LOOP ----------------
 
   void startGame() {
     timer?.cancel();
@@ -230,8 +221,6 @@ class _GamePageState extends State<GamePage> {
     });
   }
 
-  // ---------------- WORLD ----------------
-
   void spawnObstacle() {
     if (obstacles.length > 60) return;
 
@@ -263,8 +252,6 @@ class _GamePageState extends State<GamePage> {
         worker.contains(paper) ||
         obstacles.any((o) => o['index'] == paper));
   }
-
-  // ---------------- GAME OVER ----------------
 
   void showGameOver() {
     if (score <= 1) {
@@ -339,8 +326,6 @@ class _GamePageState extends State<GamePage> {
     super.dispose();
   }
 
-  // ---------------- UI ----------------
-
   String getHeadImage() {
     if (isGirl) {
       return direction == Direction.up ? 'gb.png' : 'gf.png';
@@ -375,7 +360,7 @@ class _GamePageState extends State<GamePage> {
         return Image.asset('${obstacle['type']}.png');
       }
 
-      return Container(color: const Color(0xFFF2F3F8));
+      return Container(color: Colors.transparent);
     }
   }
 
@@ -398,6 +383,7 @@ class _GamePageState extends State<GamePage> {
             child: Column(
               children: [
                 const SizedBox(height: 10),
+
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -415,49 +401,82 @@ class _GamePageState extends State<GamePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 8),
+
                 Expanded(
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 25,
-                          )
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: GestureDetector(
-                          onVerticalDragUpdate: (details) {
-                            changeDirection(details.delta.dy > 0
-                                ? Direction.down
-                                : Direction.up);
-                          },
-                          onHorizontalDragUpdate: (details) {
-                            changeDirection(details.delta.dx > 0
-                                ? Direction.right
-                                : Direction.left);
-                          },
-                          child: GridView.builder(
-                            itemCount: totalSquares,
-                            physics:
-                                const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: rowSize,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final size = constraints.maxWidth;
+
+                      return Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: size,
+                          height: size,
+                          child: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 25,
+                                )
+                              ],
                             ),
-                            itemBuilder: (context, index) {
-                              return buildCell(index);
-                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Stack(
+                                children: [
+                                  // 🖼 Background Image
+                                  Positioned.fill(
+                                    child: Image.asset(
+                                      'background.png',
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+
+                                  // 🌫 Gray overlay (40% tint)
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: Colors.grey.withOpacity(0.4),
+                                    ),
+                                  ),
+
+                                  // 🎮 Game Grid
+                                  GestureDetector(
+                                    onPanUpdate: (details) {
+                                      if (details.delta.dx.abs() > details.delta.dy.abs()) {
+                                        changeDirection(details.delta.dx > 0
+                                            ? Direction.right
+                                            : Direction.left);
+                                      } else {
+                                        changeDirection(details.delta.dy > 0
+                                            ? Direction.down
+                                            : Direction.up);
+                                      }
+                                    },
+                                    child: GridView.builder(
+                                      itemCount: totalSquares,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: rowSize,
+                                      ),
+                                      itemBuilder: (context, index) {
+                                        return buildCell(index);
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
               ],

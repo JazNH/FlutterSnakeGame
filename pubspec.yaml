@@ -58,6 +58,7 @@ flutter:
     - assets/worker.png
     - assets/paper.png
     - assets/desk.png
+    - assets/background.png
   fonts:
     - family: IBMPlexMono
       fonts:
