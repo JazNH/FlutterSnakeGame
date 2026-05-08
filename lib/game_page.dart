@@ -118,7 +118,9 @@ class _GamePageState extends State<GamePage> {
       "score": score,
     });
 
-    list.sort((a, b) => b['score'].compareTo(a['score']));
+    list.sort(
+      (a, b) => (b['score'] as int).compareTo(a['score'] as int),
+    );
 
     if (list.length > 20) {
       list = list.sublist(0, 20);

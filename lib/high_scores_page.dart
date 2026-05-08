@@ -31,7 +31,9 @@ class _HighScoresPageState extends State<HighScoresPage> {
           .toList();
 
       // Sort highest -> lowest
-      scores.sort((a, b) => b['score'].compareTo(a['score']));
+      scores.sort(
+        (a, b) => (b['score'] as int).compareTo(a['score'] as int),
+      );
     }
 
     setState(() {});
@@ -61,7 +63,9 @@ class _HighScoresPageState extends State<HighScoresPage> {
     });
 
     // Sort scores
-    scores.sort((a, b) => b['score'].compareTo(a['score']));
+    scores.sort(
+      (a, b) => (b['score'] as int).compareTo(a['score'] as int),
+    );
 
     // Optional: keep only top 10
     if (scores.length > 10) {
