@@ -102,10 +102,15 @@ class _GamePageState extends State<GamePage> {
     final prefs = await SharedPreferences.getInstance();
 
     final data = prefs.getString('leaderboard');
-    List list = [];
+
+    List<Map<String, dynamic>> list = [];
 
     if (data != null) {
-      list = jsonDecode(data);
+      final decoded = jsonDecode(data) as List;
+
+      list = decoded
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
     }
 
     list.add({
@@ -119,7 +124,10 @@ class _GamePageState extends State<GamePage> {
       list = list.sublist(0, 20);
     }
 
-    await prefs.setString('leaderboard', jsonEncode(list));
+    await prefs.setString(
+      'leaderboard',
+      jsonEncode(list),
+    );
   }
 
   void startGame() {
@@ -287,8 +295,8 @@ class _GamePageState extends State<GamePage> {
       barrierDismissible: false,
       builder: (_) => GameOverDialog(
         score: score,
-        onSubmit: (name) {
-          saveScore(name);
+        onSubmit: (name) async {
+          await saveScore(name);
         },
         onPlayAgain: () {
           Navigator.pop(context);

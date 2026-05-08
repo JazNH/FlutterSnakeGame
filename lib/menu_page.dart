@@ -229,7 +229,7 @@ class _MenuPageState extends State<MenuPage>
         const SizedBox(height: 16),
 
         const Text(
-          "OFFICE RUSH",
+          "9 TO 5 RUN",
           style: TextStyle(
             fontSize: 42,
             fontWeight: FontWeight.bold,
